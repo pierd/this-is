@@ -83,4 +83,7 @@ async function main() {
 
 }
 
-await main();
+main().catch((error) => {
+  console.error('Error in worker:', error);
+  self.postMessage({ type: 'error', error: error instanceof Error ? error.message : String(error) });
+});
