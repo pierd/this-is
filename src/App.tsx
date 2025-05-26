@@ -307,7 +307,7 @@ function App() {
                                 onClick={() => toggleRowExpansion(rowIndex)}
                               >
                                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                {isExpanded ? 'Hide' : 'Show'} Details
+                                {isExpanded ? 'Hide' : 'Show'}
                               </button>
                               {isExpanded && (
                                 <div className="similarities-list">
