@@ -67,7 +67,7 @@ function App() {
     return dotProduct / (magnitudeA * magnitudeB);
   };
 
-  const calculateAllSimilarities = (newWord: string, newEmbedding: number[], existingWords: WordEntry[]) => {
+  const calculateAllSimilarities = (newEmbedding: number[], existingWords: WordEntry[]) => {
     const similarities: { [key: string]: number } = {};
 
     // Calculate similarity with all existing words
@@ -90,7 +90,7 @@ function App() {
       const currentEmbedding = Array.from(embeddingArray);
 
       // Calculate similarities with existing words
-      const similarities = calculateAllSimilarities(currentWord.trim(), currentEmbedding, wordHistory);
+      const similarities = calculateAllSimilarities(currentEmbedding, wordHistory);
 
       // Add current word to history (don't update existing words)
       const newEntry: WordEntry = {
@@ -173,7 +173,7 @@ function App() {
     setShowActualSimilarities(!showActualSimilarities);
   };
 
-  const renderSimilarityBadge = (word: string, similarity: number, allSimilarities: number[]) => {
+  const renderSimilarityBadge = (similarity: number, allSimilarities: number[]) => {
     return (
       <span
         className="similarity-badge"
@@ -269,7 +269,7 @@ function App() {
                               {topSimilar.map(({ word, similarity }, idx) => (
                                 <div key={idx} className="most-similar">
                                   <span className="similar-word">{word}</span>
-                                  {renderSimilarityBadge(word, similarity, allSimilarities)}
+                                  {renderSimilarityBadge(similarity, allSimilarities)}
                                 </div>
                               ))}
                             </div>
@@ -283,7 +283,7 @@ function App() {
                               {mostDifferent.map(({ word, similarity }, idx) => (
                                 <div key={idx} className="most-different">
                                   <span className="different-word">{word}</span>
-                                  {renderSimilarityBadge(word, similarity, allSimilarities)}
+                                  {renderSimilarityBadge(similarity, allSimilarities)}
                                 </div>
                               ))}
                             </div>
@@ -308,7 +308,7 @@ function App() {
                                     .map(([word, similarity]) => (
                                       <div key={word} className="similarity-item">
                                         <span className="similarity-word">{word}</span>
-                                        {renderSimilarityBadge(word, similarity, allSimilarities)}
+                                        {renderSimilarityBadge(similarity, allSimilarities)}
                                       </div>
                                     ))}
                                 </div>
