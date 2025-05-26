@@ -1,48 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
-import '@tensorflow/tfjs-backend-webgl';
-import '@tensorflow/tfjs-backend-cpu';
-import * as tf from '@tensorflow/tfjs';
-import * as use from '@tensorflow-models/universal-sentence-encoder';
-import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Trash2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { type WordEntry, type WorkerToMainMessage } from './messages.ts';
+import workerInit from './worker.ts?worker';
 import './App.css';
 
-interface WordEntry {
-  word: string;
-  embedding: number[];
-  timestamp: Date;
-  similarities: { [key: string]: number };
+type MainWordEntry = WordEntry & {
+  processing: boolean;
 }
 
 function App() {
-  const [model, setModel] = useState<use.UniversalSentenceEncoder | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentWord, setCurrentWord] = useState('');
-  const [wordHistory, setWordHistory] = useState<WordEntry[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [wordHistory, setWordHistory] = useState<MainWordEntry[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [showActualSimilarities, setShowActualSimilarities] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    const loadModel = async () => {
-      try {
-        console.log('Initializing TensorFlow backends...');
-        // Wait for TensorFlow to be ready
-        await tf.ready();
-        console.log('TensorFlow ready, loading Universal Sentence Encoder...');
-        const loadedModel = await use.load();
-        setModel(loadedModel);
-        setLoading(false);
-        console.log('Model loaded successfully!');
-        // Focus input after model loads
-        setTimeout(() => inputRef.current?.focus(), 100);
-      } catch (error) {
-        console.error('Error loading model:', error);
-        setLoading(false);
+    const worker = new workerInit();
+    workerRef.current = worker;
+
+    worker.onmessage = (event) => {
+      const message = event.data as WorkerToMainMessage;
+      switch (message.type) {
+        case 'error':
+          console.error('Worker error (from message):', message.error);
+          break;
+        case 'ready':
+          setLoading(false);
+          break;
+        case 'updated':
+          setWordHistory(message.words.map(word => ({
+            ...word,
+            processing: false
+          })));
+          break;
       }
     };
 
-    loadModel();
+    worker.onerror = (event) => {
+      console.error('Worker error (from event):', event);
+    };
   }, []);
 
   // Auto-focus input on component mount
@@ -52,70 +51,31 @@ function App() {
 
   // Auto-focus input after processing is complete
   useEffect(() => {
-    if (!isProcessing && !loading) {
+    if (!loading) {
       // Use setTimeout to ensure focus happens after DOM updates
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
     }
-  }, [isProcessing, loading]);
-
-  const cosineSimilarity = (a: number[], b: number[]): number => {
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-    return dotProduct / (magnitudeA * magnitudeB);
-  };
-
-  const calculateAllSimilarities = (newEmbedding: number[], existingWords: WordEntry[]) => {
-    const similarities: { [key: string]: number } = {};
-
-    // Calculate similarity with all existing words
-    existingWords.forEach(entry => {
-      similarities[entry.word] = cosineSimilarity(newEmbedding, entry.embedding);
-    });
-
-    return similarities;
-  };
+  }, [loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentWord.trim() || !model || isProcessing) return;
+    const word = currentWord.trim();
+    if (!word) return;
 
-    setIsProcessing(true);
-    try {
-      // Get embedding for the current word
-      const embeddings = await model.embed([currentWord.trim()]);
-      const embeddingArray = await embeddings.data();
-      const currentEmbedding = Array.from(embeddingArray);
-
-      // Calculate similarities with existing words
-      const similarities = calculateAllSimilarities(currentEmbedding, wordHistory);
-
-      // Add current word to history (don't update existing words)
-      const newEntry: WordEntry = {
-        word: currentWord.trim(),
-        embedding: currentEmbedding,
-        timestamp: new Date(),
-        similarities
-      };
-
-      setWordHistory(prev => [...prev, newEntry]);
-
-      // Clear input - focus will be handled by useEffect
-      setCurrentWord('');
-
-      // Clean up tensor
-      embeddings.dispose();
-    } catch (error) {
-      console.error('Error processing word:', error);
-    } finally {
-      setIsProcessing(false);
-    }
+    workerRef.current?.postMessage({ type: 'addWord', word });
+    const newEntry: MainWordEntry = {
+      word,
+      similarities: {},
+      processing: true
+    };
+    setWordHistory(prev => [...prev, newEntry]);
+    setCurrentWord('');
   };
 
   const clearHistory = () => {
-    setWordHistory([]);
+    workerRef.current?.postMessage({ type: 'clearHistory' });
   };
 
   const getRelativeSimilarity = (similarity: number, allSimilarities: number[]): number => {
@@ -192,18 +152,6 @@ function App() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="app">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <h2>Loading Universal Sentence Encoder...</h2>
-          <p>This may take a moment on first load</p>
-        </div>
-      </div>
-    );
-  }
-
   const allSimilarities = wordHistory.flatMap(entry => Object.values(entry.similarities));
 
   return (
@@ -223,7 +171,7 @@ function App() {
               onChange={(e) => setCurrentWord(e.target.value)}
               placeholder="thing"
               className="word-input"
-              disabled={isProcessing}
+              disabled={loading}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -232,10 +180,10 @@ function App() {
             />
             <button
               type="submit"
-              disabled={!currentWord.trim() || isProcessing}
+              disabled={!currentWord.trim() || loading}
               className="submit-button"
             >
-              {isProcessing ? 'Naming...' : 'Name it'}
+              {loading ? 'Loading...' : 'Name it'}
             </button>
           </div>
         </form>
@@ -259,8 +207,9 @@ function App() {
                 </thead>
                 <tbody>
                   {wordHistory.slice().reverse().map((entry, index) => {
-                    const topSimilar = getTopSimilarWords(entry.similarities, 2);
-                    const mostDifferent = getMostDifferentWords(entry.similarities, 1);
+                    const processing = entry.processing;
+                    const topSimilar = processing ? [] : getTopSimilarWords(entry.similarities, 2);
+                    const mostDifferent = processing ? [] : getMostDifferentWords(entry.similarities, 1);
                     const rowIndex = wordHistory.length - 1 - index;
                     const isExpanded = expandedRows.has(rowIndex);
 
@@ -272,7 +221,9 @@ function App() {
                           </span>
                         </td>
                         <td className="most-similar-cell">
-                          {topSimilar.length > 0 ? (
+                          {processing ? (
+                            <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>
+                          ) : topSimilar.length > 0 ? (
                             <div className="similar-words">
                               {topSimilar.map(({ word, similarity }, idx) => (
                                 <div key={idx} className="most-similar">
@@ -286,7 +237,9 @@ function App() {
                           )}
                         </td>
                         <td className="most-different-cell">
-                          {mostDifferent.length > 0 ? (
+                          {processing ? (
+                            <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>
+                          ) : mostDifferent.length > 0 ? (
                             <div className="different-words">
                               {mostDifferent.map(({ word, similarity }, idx) => (
                                 <div key={idx} className="most-different">
@@ -300,7 +253,9 @@ function App() {
                           )}
                         </td>
                         <td className="similarities-cell">
-                          {Object.keys(entry.similarities).length > 0 ? (
+                          {processing ? (
+                            <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>
+                          ) : Object.keys(entry.similarities).length > 0 ? (
                             <div className="similarities-toggle">
                               <button
                                 className="toggle-button"
