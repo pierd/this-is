@@ -224,6 +224,11 @@ function App() {
               placeholder="thing"
               className="word-input"
               disabled={isProcessing}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              inputMode="text"
             />
             <button
               type="submit"
