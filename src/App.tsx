@@ -204,6 +204,8 @@ function App() {
     );
   }
 
+  const allSimilarities = wordHistory.flatMap(entry => Object.values(entry.similarities));
+
   return (
     <div className="app">
       <div className="container">
@@ -262,7 +264,6 @@ function App() {
                     const mostDifferent = getMostDifferentWords(entry.similarities, 1);
                     const rowIndex = wordHistory.length - 1 - index;
                     const isExpanded = expandedRows.has(rowIndex);
-                    const allSimilarities = Object.values(entry.similarities);
 
                     return (
                       <tr key={rowIndex} className="word-row">
