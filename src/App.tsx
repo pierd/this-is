@@ -82,7 +82,7 @@ function App() {
     if (allSimilarities.length === 0) return 0;
     const min = Math.min(...allSimilarities);
     const max = 1.0;
-    if (max === min) return 0.5; // If all values are the same, return middle value
+    if (max === min) return 1.0;
     return (similarity - min) / (max - min);
   };
 
