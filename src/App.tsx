@@ -3,7 +3,7 @@ import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import * as tf from '@tensorflow/tfjs';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
-import { Search, Trash2, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import './App.css';
 
 interface WordEntry {
@@ -237,22 +237,16 @@ function App() {
 
         {wordHistory.length > 0 && (
           <div className="words-table-section">
-            <div className="section-header">
-              <div className="section-title">
-                <TrendingUp size={20} />
-                <h2>Named Things ({wordHistory.length})</h2>
-              </div>
-              <button onClick={clearHistory} className="clear-button">
-                <Trash2 size={16} />
-                Clear All
-              </button>
-            </div>
-
             <div className="table-container">
               <table className="words-table">
                 <thead>
                   <tr>
-                    <th>Thing</th>
+                    <th style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Thing ({wordHistory.length})
+                      <button onClick={clearHistory} className="clear-button">
+                        <Trash2 size={16} />
+                      </button>
+                    </th>
                     <th>Most Similar To</th>
                     <th>Most Different From</th>
                     <th>Similarities</th>
@@ -283,7 +277,7 @@ function App() {
                               ))}
                             </div>
                           ) : (
-                            <span className="no-data">First thing</span>
+                            <span className="no-data">-</span>
                           )}
                         </td>
                         <td className="most-different-cell">
