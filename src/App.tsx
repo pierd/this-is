@@ -121,7 +121,7 @@ function App() {
   const getRelativeSimilarity = (similarity: number, allSimilarities: number[]): number => {
     if (allSimilarities.length === 0) return 0;
     const min = Math.min(...allSimilarities);
-    const max = Math.max(...allSimilarities);
+    const max = 1.0;
     if (max === min) return 0.5; // If all values are the same, return middle value
     return (similarity - min) / (max - min);
   };
