@@ -159,6 +159,12 @@ function App() {
       .map(([word, similarity]) => ({ word, similarity }));
   };
 
+  const isWordRepeated = (word: string, currentIndex: number): boolean => {
+    return wordHistory
+      .slice(0, currentIndex)
+      .some(entry => entry.word.toLowerCase() === word.toLowerCase());
+  };
+
   const toggleRowExpansion = (index: number) => {
     const newExpanded = new Set(expandedRows);
     if (newExpanded.has(index)) {
@@ -261,7 +267,9 @@ function App() {
                     return (
                       <tr key={rowIndex} className="word-row">
                         <td className="word-cell">
-                          <span className="word-text">{entry.word}</span>
+                          <span className={`word-text ${isWordRepeated(entry.word, rowIndex) ? 'repeated-word' : ''}`}>
+                            {entry.word}
+                          </span>
                         </td>
                         <td className="most-similar-cell">
                           {topSimilar.length > 0 ? (

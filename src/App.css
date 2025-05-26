@@ -246,6 +246,10 @@ body {
   font-size: 1rem;
 }
 
+.word-cell .word-text.repeated-word {
+  color: #ef4444;
+}
+
 .time-cell {
   color: #6b7280;
   font-size: 0.85rem;
@@ -473,4 +477,12 @@ body {
     font-size: 0.8rem;
     padding: 4px 8px;
   }
+}
+
+.word-text {
+  font-weight: 500;
+}
+
+.repeated-word {
+  color: #ef4444;
 }
