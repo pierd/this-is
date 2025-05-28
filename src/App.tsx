@@ -286,10 +286,10 @@ function App() {
         <div className="instructions">
           <h3>How to use</h3>
           <ul>
-            <li>The goal is to name things using words that are different from each other.</li>
-            <li>Type a word and press "Name it" (or Enter) to add it to the list.</li>
+            <li>The goal is to name things using words that are different from each other, for example: "This is a <span className="example-word">car</span>", "This is an <span className="example-word">apple</span>", "This is the <span className="example-word">Moon</span>", "This is <span className="example-word">love</span>", etc.</li>
+            <li>Type a word and press <span className="submit-button">Name it</span> (or Enter) to add it to the list.</li>
             <li>Words are checked for similarity with previous entries.</li>
-            <li>Green thumbs up means the word is unique enough, red thumbs down means it's too similar to previous entries.</li>
+            <li><ThumbsUp size={16} color="#22c55e" /> means the word is unique enough, <ThumbsDown size={16} color="#ef4444" /> means it's too similar to previous entries.</li>
           </ul>
         </div>
       </div>

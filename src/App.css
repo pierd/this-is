@@ -592,3 +592,27 @@ body {
 .instructions li:last-child {
   margin-bottom: 0;
 }
+
+.example-word {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.instructions .submit-button {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #4a5568;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: default;
+  user-select: none;
+  width: fit-content;
+  min-width: unset;
+}
