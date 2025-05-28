@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Trash2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Trash2, ChevronDown, ChevronRight, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { type WordEntry, type WorkerToMainMessage } from './messages.ts';
 import workerInit from './worker.ts?worker';
 import './App.css';
+
+const MAX_SIMILARITY_OK = 0.5;
+const MAX_SIMILARITY_WARN = 0.6;
+const MAX_SIMILARITY_BAD = 0.8;
+const LAST_WORDS_TO_CHECK = 10;
 
 type MainWordEntry = WordEntry & {
   processing: boolean;
@@ -13,7 +18,6 @@ function App() {
   const [currentWord, setCurrentWord] = useState('');
   const [wordHistory, setWordHistory] = useState<MainWordEntry[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [showActualSimilarities, setShowActualSimilarities] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker | null>(null);
 
@@ -86,35 +90,20 @@ function App() {
     return (similarity - min) / (max - min);
   };
 
-  const formatSimilarity = (similarity: number, allSimilarities: number[]): string => {
-    const relativeSimilarity = getRelativeSimilarity(similarity, allSimilarities);
-    return (relativeSimilarity * 100).toFixed(1) + '%';
-  };
-
   const getSimilarityColor = (similarity: number, allSimilarities: number[]): string => {
     const relativeSimilarity = getRelativeSimilarity(similarity, allSimilarities);
-    if (relativeSimilarity < 0.25) return '#22c55e'; // green - very different (good)
-    if (relativeSimilarity < 0.5) return '#eab308'; // yellow - moderately different
-    if (relativeSimilarity < 0.75) return '#f97316'; // orange - somewhat similar
+    if (relativeSimilarity < MAX_SIMILARITY_OK) return '#22c55e'; // green - very different (good)
+    if (relativeSimilarity < MAX_SIMILARITY_WARN) return '#eab308'; // yellow - moderately different
+    if (relativeSimilarity < MAX_SIMILARITY_BAD) return '#f97316'; // orange - somewhat similar
     return '#ef4444'; // red - very similar (bad)
   };
 
   const getTopSimilarWords = (similarities: { [key: string]: number }, count: number = 2): { word: string; similarity: number }[] => {
-    const entries = Object.entries(similarities);
+    const entries = Object.entries(similarities).slice(-LAST_WORDS_TO_CHECK);
     if (entries.length === 0) return [];
 
     return entries
       .sort(([, a], [, b]) => b - a)
-      .slice(0, count)
-      .map(([word, similarity]) => ({ word, similarity }));
-  };
-
-  const getMostDifferentWords = (similarities: { [key: string]: number }, count: number = 1): { word: string; similarity: number }[] => {
-    const entries = Object.entries(similarities);
-    if (entries.length === 0) return [];
-
-    return entries
-      .sort(([, a], [, b]) => a - b)
       .slice(0, count)
       .map(([word, similarity]) => ({ word, similarity }));
   };
@@ -135,19 +124,14 @@ function App() {
     setExpandedRows(newExpanded);
   };
 
-  const handleSimilarityClick = () => {
-    setShowActualSimilarities(!showActualSimilarities);
-  };
-
   const renderSimilarityBadge = (similarity: number, allSimilarities: number[]) => {
     return (
       <span
         className="similarity-badge"
         style={{ backgroundColor: getSimilarityColor(similarity, allSimilarities) }}
         title={`Actual similarity: ${similarity.toFixed(3)}`}
-        onClick={handleSimilarityClick}
       >
-        {showActualSimilarities ? similarity.toFixed(3) : formatSimilarity(similarity, allSimilarities)}
+        {similarity.toFixed(3)}
       </span>
     );
   };
@@ -195,62 +179,73 @@ function App() {
                 <thead>
                   <tr>
                     <th style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      Thing ({wordHistory.length})
+                      Things ({wordHistory.length})
                       <button onClick={clearHistory} className="clear-button">
                         <Trash2 size={16} />
                       </button>
                     </th>
-                    <th>Most Similar To</th>
-                    <th>Most Different From</th>
+                    <th>
+                      <ThumbsUp size={16} style={{ verticalAlign: 'middle' }}/>
+                      <span style={{ fontSize: '16px', verticalAlign: 'middle', margin: '0 4px' }}>
+                        /
+                      </span>
+                      <ThumbsDown size={16} style={{ verticalAlign: 'middle' }}/>
+                      </th>
                     <th>Similarities</th>
                   </tr>
                 </thead>
                 <tbody>
                   {wordHistory.slice().reverse().map((entry, index) => {
                     const processing = entry.processing;
-                    const topSimilar = processing ? [] : getTopSimilarWords(entry.similarities, 2);
-                    const mostDifferent = processing ? [] : getMostDifferentWords(entry.similarities, 1);
+                    const topSimilar = processing ? [] : getTopSimilarWords(entry.similarities, 2).filter(({ similarity }) => similarity >= MAX_SIMILARITY_WARN);
                     const rowIndex = wordHistory.length - 1 - index;
                     const isExpanded = expandedRows.has(rowIndex);
+                    const repeated = isWordRepeated(entry.word, rowIndex);
 
                     return (
                       <tr key={rowIndex} className="word-row">
                         <td className="word-cell">
-                          <span className={`word-text ${isWordRepeated(entry.word, rowIndex) ? 'repeated-word' : ''}`}>
+                          <span className={`word-text ${repeated ? 'repeated-word' : ''}`}>
                             {entry.word}
                           </span>
                         </td>
                         <td className="most-similar-cell">
-                          {processing ? (
-                            <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>
-                          ) : topSimilar.length > 0 ? (
-                            <div className="similar-words">
-                              {topSimilar.map(({ word, similarity }, idx) => (
-                                <div key={idx} className="most-similar">
-                                  <span className="similar-word">{word}</span>
-                                  {renderSimilarityBadge(similarity, allSimilarities)}
+                          {(() => {
+                            if (processing) {
+                              return <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>;
+                            }
+                            if (repeated) {
+                              return <div className="similar-words">
+                                <ThumbsDown
+                                  size={16}
+                                  color="#ef4444"
+                                  className="thumbs-animation"
+                                />
+                                <div className="most-similar">
+                                  <span className="similar-word">Repeated</span>
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="no-data">-</span>
-                          )}
-                        </td>
-                        <td className="most-different-cell">
-                          {processing ? (
-                            <span className="no-data"><Loader2 size={16} className="animate-spin" /></span>
-                          ) : mostDifferent.length > 0 ? (
-                            <div className="different-words">
-                              {mostDifferent.map(({ word, similarity }, idx) => (
-                                <div key={idx} className="most-different">
-                                  <span className="different-word">{word}</span>
-                                  {renderSimilarityBadge(similarity, allSimilarities)}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="no-data">-</span>
-                          )}
+                              </div>;
+                            }
+                            if (topSimilar.length > 0) {
+                              return <div className="similar-words">
+                                <ThumbsDown
+                                  size={16}
+                                  color="#ef4444"
+                                  className="thumbs-animation"
+                                />
+                                {topSimilar.map(({ word }, idx) => (
+                                  <div key={idx} className="most-similar">
+                                    <span className="similar-word">Too similar to: <span className="similar-word-text">{word}</span></span>
+                                  </div>
+                                ))}
+                              </div>;
+                            }
+                            return <ThumbsUp
+                              size={16}
+                              color="#22c55e"
+                              className="thumbs-animation"
+                            />;
+                          })()}
                         </td>
                         <td className="similarities-cell">
                           {processing ? (

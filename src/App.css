@@ -514,3 +514,51 @@ body {
 .repeated-word {
   color: #ef4444;
 }
+
+.similar-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  margin: 2px 0;
+}
+
+.similar-word-text {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+@keyframes thumbsAppear {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(2.5) rotate(10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+@keyframes thumbsShake {
+  0%, 100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-15deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+
+.thumbs-animation {
+  animation: thumbsAppear 0.5s ease-out forwards, thumbsShake 0.5s ease-in-out 0.5s;
+}
