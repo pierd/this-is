@@ -46,6 +46,8 @@ function App() {
     worker.onerror = (event) => {
       console.error('Worker error (from event):', event);
     };
+
+    return () => worker.terminate();
   }, []);
 
   // Auto-focus input on component mount
@@ -193,7 +195,9 @@ function App() {
                 <tbody>
                   {wordHistory.slice().reverse().map((entry, index) => {
                     const processing = entry.processing;
-                    const topSimilar = processing ? [] : getTopSimilarWords(entry.similarities, 2).filter(({ similarity }) => similarity >= MAX_SIMILARITY_WARN);
+                    const mostSimilar = processing ? [] : getTopSimilarWords(entry.similarities, 2);
+                    const topSimilar = processing ? [] : mostSimilar.filter(({ similarity }) => similarity >= MAX_SIMILARITY_WARN);
+                    const maxSimilarity = processing ? 0 : mostSimilar.reduce((max, { similarity }) => Math.max(max, similarity), 0);
                     const rowIndex = wordHistory.length - 1 - index;
                     const isExpanded = expandedRows.has(rowIndex);
                     const repeated = isWordRepeated(entry.word, rowIndex);
@@ -240,7 +244,7 @@ function App() {
                             }
                             return <ThumbsUp
                               size={16}
-                              color="#22c55e"
+                              color={getSimilarityColor(maxSimilarity)}
                               className="thumbs-animation"
                             />;
                           })()}
