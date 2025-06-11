@@ -4,33 +4,33 @@ import * as tf from '@tensorflow/tfjs';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import type { MainToWorkerMessage, WordEntry } from './messages';
 
-type WorkerWordEntry = {
+class WorkerWordEntry {
   word: string;
   embedding: number[];
-  similarities: { [key: string]: number };
-}
+  similarities: { [key: string]: number } = {};
+  magnitude: number;
 
-function wordEntryFromWorkerWordEntry({ word, similarities }: WorkerWordEntry): WordEntry {
-  return {
-    word,
-    similarities
+  constructor(word: string, embedding: number[], existingWords: WorkerWordEntry[]) {
+    this.word = word;
+    this.embedding = embedding;
+    this.magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
+    existingWords.forEach(entry => {
+      this.similarities[entry.word] = this.cosineSimilarity(entry);
+    });
   }
+
+  public toWordEntry(): WordEntry {
+    return {
+      word: this.word,
+      similarities: this.similarities
+    }
+  }
+
+  public cosineSimilarity(other: WorkerWordEntry): number {
+    const dotProduct = this.embedding.reduce((sum, val, i) => sum + val * other.embedding[i], 0);
+    return dotProduct / (this.magnitude * other.magnitude);
+  };
 }
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-  const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-  const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  return dotProduct / (magnitudeA * magnitudeB);
-};
-
-function calculateAllSimilarities(newEmbedding: number[], existingWords: WorkerWordEntry[]) {
-  const similarities: { [key: string]: number } = {};
-  existingWords.forEach(entry => {
-    similarities[entry.word] = cosineSimilarity(newEmbedding, entry.embedding);
-  });
-  return similarities;
-};
 
 async function main() {
   const wordHistory: WorkerWordEntry[] = [];
@@ -54,16 +54,11 @@ async function main() {
           const currentEmbedding = Array.from(embeddingArray);
 
           // Calculate similarities with existing words
-          const similarities = calculateAllSimilarities(currentEmbedding, wordHistory);
+          const newEntry = new WorkerWordEntry(word, currentEmbedding, wordHistory);
 
           // Add current word to history (don't update existing words)
-          const newEntry: WorkerWordEntry = {
-            word,
-            embedding: currentEmbedding,
-            similarities
-          };
           wordHistory.push(newEntry);
-          self.postMessage({ type: 'updated', words: wordHistory.map(wordEntryFromWorkerWordEntry) });
+          self.postMessage({ type: 'updated', words: wordHistory.map(wordEntry => wordEntry.toWordEntry()) });
 
           // Clean up tensor
           embeddings.dispose();
